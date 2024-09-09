@@ -41,6 +41,9 @@ struct pcdrv_private_data
 	struct device *device_pcd;
 	struct pcdev_private_data pcdev_data[NO_OF_DEVICES];
 };
+#define RDONLY 0x01
+#define WRONLY 0x10
+#define RDWR   0x11
 
 struct pcdrv_private_data pcdrv_data =
 {
@@ -50,25 +53,25 @@ struct pcdrv_private_data pcdrv_data =
 			.buffer = device_buffer_pcdev1,
 			.size = MEM_SIZE_MAX_PCDEV1,
 			.serial_number = "PCDEV1XYZ123",
-			.perm = 0x01 /*RDONLY*/ 
+			.perm = RDONLY /*RDONLY*/ 
 		},
 		[1] = {
 			.buffer = device_buffer_pcdev2,
 			.size = MEM_SIZE_MAX_PCDEV2,
 			.serial_number = "PCDEV2XYZ123",
-			.perm = 0x10 /*WRONLY*/ 
+			.perm = WRONLY /*WRONLY*/ 
 		},
 		[2] = {
 			.buffer = device_buffer_pcdev2,
 			.size = MEM_SIZE_MAX_PCDEV2,
 			.serial_number = "PCDEV2XYZ123",
-			.perm = 0x11 /*RDWR*/ 
+			.perm = RDWR /*RDWR*/ 
 		},
 		[3] = {
 			.buffer = device_buffer_pcdev3,
 			.size = MEM_SIZE_MAX_PCDEV3,
 			.serial_number = "PCDEV3XYZ123",
-			.perm = 0x11 /*RDWR*/ 
+			.perm = RDWR /*RDWR*/ 
 		},
 	}
 
@@ -80,7 +83,7 @@ ssize_t pcd_read(struct file *filp, char __user *buff, size_t count, loff_t *f_p
 ssize_t pcd_write(struct file *filp, const char __user *buff, size_t count, loff_t *f_pos);
 int pcd_open(struct inode *inode, struct file *filp);
 int pcd_release(struct inode *inode, struct file *filp);
-int check_permission(void);
+int check_permission(int, int);
 
 loff_t pcd_lseek(struct file *filp, loff_t offset, int whence)
 {
@@ -182,9 +185,17 @@ ssize_t pcd_write(struct file *filp, const char __user *buff, size_t count, loff
 	return count;
 }
 
-int check_permission(void)
+int check_permission(int dev_perm, int acc_mode)
 {
-	return 0;
+    if (dev_perm == RDWR)
+        return 0;  
+	// ensure read-only access
+    if (dev_perm == RDONLY && (acc_mode & FMODE_READ) && !(acc_mode & FMODE_WRITE))
+        return 0;
+	// ensure write-only access
+    if (dev_perm == WRONLY && (acc_mode & FMODE_WRITE) && !(acc_mode & FMODE_READ)) 
+        return 0; 
+    return -EPERM;
 }
 
 int pcd_open(struct inode *inode, struct file *filp)
@@ -204,7 +215,7 @@ int pcd_open(struct inode *inode, struct file *filp)
 	filp->private_data = pcdev_data;
 
 	/*check permission */
-	ret = check_permission();
+	ret = check_permission(pcdev_data->perm, filp->f_mode);
 
 	(!ret)?pr_info("open was successful\n"):pr_info("open was successful\n");
 	return 0;

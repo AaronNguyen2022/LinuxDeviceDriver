@@ -80,6 +80,7 @@ ssize_t pcd_read(struct file *filp, char __user *buff, size_t count, loff_t *f_p
 ssize_t pcd_write(struct file *filp, const char __user *buff, size_t count, loff_t *f_pos);
 int pcd_open(struct inode *inode, struct file *filp);
 int pcd_release(struct inode *inode, struct file *filp);
+int check_permission(void);
 
 loff_t pcd_lseek(struct file *filp, loff_t offset, int whence)
 {
@@ -179,9 +180,31 @@ ssize_t pcd_write(struct file *filp, const char __user *buff, size_t count, loff
 	return 0;
 }
 
+int check_permission(void)
+{
+	return 0;
+}
+
 int pcd_open(struct inode *inode, struct file *filp)
 {
-	pr_info("open was successful\n");
+	int ret;
+	int minor_n;
+
+	/*find out on which device file open was attempted by the user space*/
+	minor_n = MINOR(inode->i_rdev);
+	pr_info("minor access = %d\n", minor_n);
+
+	/*get device's private data structure */
+	struct pcdev_private_data *pcdev_data;
+	pcdev_data = container_of(inode->i_cdev,struct pcdev_private_data,cdev);
+
+	/*to supply device private data to other methors of the driver*/
+	filp->private_data = pcdev_data;
+
+	/*check permission */
+	ret = check_permission();
+
+	(!ret)?pr_info("open was successful\n"):pr_info("open was successful\n");
 	return 0;
 }
 

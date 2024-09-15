@@ -11,7 +11,7 @@
 #define NO_OF_DEVICES 4
 
 #define MEM_SIZE_MAX_PCDEV1 1024  
-#define MEM_SIZE_MAX_PCDEV2 251  
+#define MEM_SIZE_MAX_PCDEV2 512  
 #define MEM_SIZE_MAX_PCDEV3 1024  
 #define MEM_SIZE_MAX_PCDEV4 512  
 
@@ -62,15 +62,15 @@ struct pcdrv_private_data pcdrv_data =
 			.perm = WRONLY /*WRONLY*/ 
 		},
 		[2] = {
-			.buffer = device_buffer_pcdev2,
-			.size = MEM_SIZE_MAX_PCDEV2,
-			.serial_number = "PCDEV2XYZ123",
-			.perm = RDWR /*RDWR*/ 
-		},
-		[3] = {
 			.buffer = device_buffer_pcdev3,
 			.size = MEM_SIZE_MAX_PCDEV3,
 			.serial_number = "PCDEV3XYZ123",
+			.perm = RDWR /*RDWR*/ 
+		},
+		[3] = {
+			.buffer = device_buffer_pcdev4,
+			.size = MEM_SIZE_MAX_PCDEV4,
+			.serial_number = "PCDEV4XYZ123",
 			.perm = RDWR /*RDWR*/ 
 		},
 	}
@@ -217,8 +217,8 @@ int pcd_open(struct inode *inode, struct file *filp)
 	/*check permission */
 	ret = check_permission(pcdev_data->perm, filp->f_mode);
 
-	(!ret)?pr_info("open was successful\n"):pr_info("open was successful\n");
-	return 0;
+	(!ret)?pr_info("open was successful\n"):pr_info("open was unsuccessful\n");
+	return ret;
 }
 
 int pcd_release(struct inode *inode, struct file *filp)
@@ -249,12 +249,12 @@ static int __init pcd_driver_init(void)
 	}
 
 	/*Create device class under /sys/class/ */
-		pcdrv_data.class_pcd = class_create("pcd_class");
-		if(IS_ERR(pcdrv_data.class_pcd)){
-			pr_err("Class creation failed\n");
-			ret = PTR_ERR(pcdrv_data.class_pcd);
-			goto unreg_chrdev;
-		}
+	pcdrv_data.class_pcd = class_create("pcd_class");
+	if(IS_ERR(pcdrv_data.class_pcd)){
+		pr_err("Class creation failed\n");
+		ret = PTR_ERR(pcdrv_data.class_pcd);
+		goto unreg_chrdev;
+	}
 	
 	for(i=0;i<NO_OF_DEVICES;i++){
 		pr_info("Device number <major>:<minor> = %d:%d\n", MAJOR(pcdrv_data.device_number+i),MINOR(pcdrv_data.device_number+i));
@@ -271,7 +271,7 @@ static int __init pcd_driver_init(void)
 		}
 
 		/* populate the sysfs with device information */
-		pcdrv_data.device_pcd = device_create(pcdrv_data.class_pcd,NULL,pcdrv_data.device_number+i,NULL,"pcdev-%d",i);
+		pcdrv_data.device_pcd = device_create(pcdrv_data.class_pcd,NULL,pcdrv_data.device_number+i,NULL,"pcdev-%d",i+1);
 		if(IS_ERR(pcdrv_data.device_pcd)){
 			pr_err("Device create failed\n");
 			ret = PTR_ERR(pcdrv_data.device_pcd);
